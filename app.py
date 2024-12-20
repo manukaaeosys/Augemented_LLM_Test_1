@@ -3,7 +3,7 @@ import logging
 from dotenv import load_dotenv
 from PyPDF2 import PdfReader
 from langchain.chat_models import ChatOpenAI
-from langchain.vectorstores import OpenAI
+#from langchain.vectorstores import OpenAI
 from langchain.embeddings.openai import OpenAIEmbeddings
 from langchain.chains import ConversationalRetrievalChain
 from langchain.text_splitter import RecursiveCharacterTextSplitter
