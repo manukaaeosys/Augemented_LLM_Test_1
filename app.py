@@ -20,17 +20,7 @@ def get_pdf_text(pdf_docs):
             text += page.extract_text()
     return text
 
-'''
-def get_text_chunks(text):
-    text_splitter = CharacterTextSplitter(
-        separator="\n",
-        chunk_size=1000,
-        chunk_overlap=200,
-        length_function=len
-    )
-    chunks = text_splitter.split_text(text)
-    return chunks
-'''
+
 
 def get_text_chunks_RCT(text):
     text_splitter = RecursiveCharacterTextSplitter(
@@ -40,25 +30,13 @@ def get_text_chunks_RCT(text):
     chunks = text_splitter.split_text(text)
     return chunks
 
-'''
-def get_vectorstore(text_chunks):
-    embeddings = OpenAIEmbeddings()
-    vectorstore = Chroma.from_texts(texts=text_chunks, embedding=embeddings)
-    return vectorstore
-'''
+
 
 def get_vectorstore(text_chunks):
     embeddings = OpenAIEmbeddings(model="text-embedding-3-large")
     vectorstore = FAISS.from_texts(texts=text_chunks, embedding=embeddings)
     return vectorstore
 
-'''
-def get_vectorstore(text_chunks):
-    embeddings = OpenAIEmbeddings()
-    index_name = "your-index-name"
-    vectorstore = Pinecone.from_texts(texts=text_chunks, embedding=embeddings, index_name=index_name)
-    return vectorstore
-'''
 
 def get_conversation_chain(vectorstore):
     llm = ChatOpenAI(model="gpt-4o")
