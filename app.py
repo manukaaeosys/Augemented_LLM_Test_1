@@ -34,8 +34,8 @@ def get_text_chunks(text):
 
 def get_text_chunks_RCT(text):
     text_splitter = RecursiveCharacterTextSplitter(
-        chunk_size=1200,
-    chunk_overlap=100,
+        chunk_size=4000,
+    chunk_overlap=300,
     )
     chunks = text_splitter.split_text(text)
     return chunks
