@@ -3,7 +3,7 @@ from PyPDF2._reader import PdfReader
 from dotenv import load_dotenv
 from langchain.text_splitter import CharacterTextSplitter
 from langchain.embeddings import OpenAIEmbeddings
-from vectorstores.chroma import Chroma
+from langchain.vectorstores import Chroma
 from langchain.vectorstores import Pinecone
 from langchain.chat_models import ChatOpenAI
 from langchain.memory import ConversationBufferMemory
