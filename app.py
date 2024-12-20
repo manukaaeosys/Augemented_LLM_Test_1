@@ -53,13 +53,13 @@ def handle_userinput(user_question):
     response = st.session_state.conversation({'question': user_question})
     st.session_state.chat_history = response['chat_history']
 
-    for i, message in enumerate(st.session_state.chat_history):
-        if i % 2 == 0:
-            st.write(user_template.replace(
-                "{{MSG}}", message.content), unsafe_allow_html=True)
-        else:
-            st.write(bot_template.replace(
-                "{{MSG}}", message.content), unsafe_allow_html=True)
+    for i in range(len(st.session_state.chat_history) - 1, -1, -2):
+        question = st.session_state.chat_history[i]
+        if i - 1 >= 0:
+            answer = st.session_state.chat_history[i - 1]
+            st.write(user_template.replace("{{MSG}}", question.content), unsafe_allow_html=True)
+            st.write(bot_template.replace("{{MSG}}", answer.content), unsafe_allow_html=True)
+
 
 def main():
     load_dotenv()
