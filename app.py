@@ -48,7 +48,7 @@ def get_vectorstore(text_chunks):
 '''
 
 def get_vectorstore(text_chunks):
-    embeddings = OpenAIEmbeddings()
+    embeddings = OpenAIEmbeddings(model="text-embedding-3-large")
     vectorstore = FAISS.from_texts(texts=text_chunks, embedding=embeddings)
     return vectorstore
 
@@ -92,7 +92,7 @@ def main():
     if "chat_history" not in st.session_state:
         st.session_state.chat_history = None
 
-    st.header("Chat with multiple PDFs :books:")
+    st.header("Chat with PDF")
     user_question = st.text_input("Ask a question about your documents:")
     if user_question:
         handle_userinput(user_question)
