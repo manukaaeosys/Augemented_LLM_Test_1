@@ -8,6 +8,7 @@ altair==4
 tiktoken
 faiss-cpu
 pydantic
+langchain-core
 # uncomment to use huggingface llms
 # huggingface-hub==0.14.1
 
