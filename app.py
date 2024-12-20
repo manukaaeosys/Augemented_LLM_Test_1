@@ -6,6 +6,7 @@ from langchain.embeddings import OpenAIEmbeddings
 from langchain.vectorstores import Chroma
 from langchain.vectorstores import Pinecone
 from langchain.chat_models import ChatOpenAI
+from langchain.vectorstores import FAISS
 from langchain.memory import ConversationBufferMemory
 from langchain.chains import ConversationalRetrievalChain
 from htmlTemplates import css, bot_template, user_template
@@ -27,10 +28,16 @@ def get_text_chunks(text):
     )
     chunks = text_splitter.split_text(text)
     return chunks
-
+'''
 def get_vectorstore(text_chunks):
     embeddings = OpenAIEmbeddings()
     vectorstore = Chroma.from_texts(texts=text_chunks, embedding=embeddings)
+    return vectorstore
+'''
+
+def get_vectorstore(text_chunks):
+    embeddings = OpenAIEmbeddings()
+    vectorstore = FAISS.from_texts(texts=text_chunks, embedding=embeddings)
     return vectorstore
 
 '''
