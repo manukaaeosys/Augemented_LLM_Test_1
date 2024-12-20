@@ -1,0 +1,15 @@
+langchain==0.0.184
+PyPDF2
+chromadb==0.5.23
+python-dotenv==1.0.0
+streamlit==1.18.1
+openai==0.27.6
+altair==4
+tiktoken==0.4.0
+faiss-cpu
+# uncomment to use huggingface llms
+# huggingface-hub==0.14.1
+
+# uncomment to use instructor embeddings
+# InstructorEmbedding==1.0.1
+# sentence-transformers==2.2.2
