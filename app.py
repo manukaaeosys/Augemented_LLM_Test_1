@@ -1,123 +1,158 @@
-import streamlit as st
-from PyPDF2._reader import PdfReader
+import os
+import logging
 from dotenv import load_dotenv
-from langchain.text_splitter import CharacterTextSplitter
-from langchain.embeddings import OpenAIEmbeddings
-from langchain.vectorstores import Chroma
-from langchain.vectorstores import Pinecone
+from PyPDF2 import PdfReader
 from langchain.chat_models import ChatOpenAI
-from langchain.vectorstores import FAISS
-from langchain.memory import ConversationBufferMemory
+from langchain.vectorstores import OpenAI
+from langchain.embeddings.openai import OpenAIEmbeddings
 from langchain.chains import ConversationalRetrievalChain
-from htmlTemplates import css, bot_template, user_template
 from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain.memory import ConversationBufferMemory
+import streamlit as st
+from concurrent.futures import ThreadPoolExecutor
 
-def get_pdf_text(pdf_docs):
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# 1. User Query Input
+def handle_user_query(user_query):
+    """Handles user query by interacting with the retrieval and LLM components."""
+    if not user_query:
+        st.warning("Please enter a query.")
+        return
+
+    try:
+        retriever_type = st.radio("Choose Retrieval Method", ["Keyword Search", "Embedding-Based"])
+        if retriever_type == "Keyword Search":
+            relevant_chunks = keyword_search_retriever(st.session_state.text_chunks, user_query)
+            augmented_prompt = f"User Query: {user_query}\nRelevant Context:\n" + "\n".join(relevant_chunks)
+        else:
+            augmented_prompt = augment_user_prompt(user_query, st.session_state.retriever)
+
+        response = generate_response(augmented_prompt)
+        st.session_state.chat_history.append((user_query, response))
+
+        for user_msg, bot_msg in st.session_state.chat_history:
+            st.write(f"**User:** {user_msg}")
+            st.write(f"**Bot:** {bot_msg}")
+    except Exception as e:
+        logger.error(f"Error processing user query: {e}")
+        st.error("An error occurred while processing your query.")
+
+# 2.1. Keyword Search Retrieval
+def keyword_search_retriever(text_chunks, user_query):
+    """Retrieves text chunks matching keywords in the user query."""
+    try:
+        keywords = user_query.lower().split()  # Split query into keywords
+        relevant_chunks = [
+            chunk for chunk in text_chunks
+            if any(keyword in chunk.lower() for keyword in keywords)
+        ]
+        return relevant_chunks
+    except Exception as e:
+        logger.error(f"Error in keyword search retrieval: {e}")
+        return []
+
+# 2.2. Embedding-Based Retrieval
+def retrieve_data(vectorstore):
+    """Creates a retriever for querying relevant documents."""
+    try:
+        return vectorstore.as_retriever()
+    except Exception as e:
+        logger.error(f"Error initializing retriever: {e}")
+        return None
+
+# 3. Document Chunking and Embedding
+def process_documents(pdf_files):
+    """Processes uploaded PDF documents and returns text chunks."""
     text = ""
-    for pdf in pdf_docs:
-        pdf_reader = PdfReader(pdf)
-        for page in pdf_reader.pages:
-            text += page.extract_text()
-    return text
+    with ThreadPoolExecutor() as executor:
+        results = executor.map(process_pdf, pdf_files)
+        text = "".join(results)
 
-'''
-def get_text_chunks(text):
-    text_splitter = CharacterTextSplitter(
-        separator="\n",
-        chunk_size=1000,
-        chunk_overlap=200,
-        length_function=len
-    )
-    chunks = text_splitter.split_text(text)
-    return chunks
-'''
-
-def get_text_chunks_RCT(text):
     text_splitter = RecursiveCharacterTextSplitter(
         chunk_size=1200,
-    chunk_overlap=100,
+        chunk_overlap=100
     )
-    chunks = text_splitter.split_text(text)
-    return chunks
+    text_chunks = text_splitter.split_text(text)
+    st.session_state.text_chunks = text_chunks  # Save for keyword search
 
-'''
-def get_vectorstore(text_chunks):
-    embeddings = OpenAIEmbeddings()
-    vectorstore = Chroma.from_texts(texts=text_chunks, embedding=embeddings)
-    return vectorstore
-'''
-
-def get_vectorstore(text_chunks):
     embeddings = OpenAIEmbeddings(model="text-embedding-3-large")
-    vectorstore = FAISS.from_texts(texts=text_chunks, embedding=embeddings)
-    return vectorstore
+    try:
+        vectorstore = OpenAI.from_texts(texts=text_chunks, embedding=embeddings)
+        st.session_state.vectorstore = vectorstore  # Save for embedding-based retrieval
+        return vectorstore
+    except Exception as e:
+        logger.error(f"Error creating vectorstore: {e}")
+        return None
 
-'''
-def get_vectorstore(text_chunks):
-    embeddings = OpenAIEmbeddings()
-    index_name = "your-index-name"
-    vectorstore = Pinecone.from_texts(texts=text_chunks, embedding=embeddings, index_name=index_name)
-    return vectorstore
-'''
+def process_pdf(pdf):
+    """Extracts text from a single PDF."""
+    pdf_text = ""
+    try:
+        pdf_reader = PdfReader(pdf)
+        for page in pdf_reader.pages:
+            pdf_text += page.extract_text()
+    except Exception as e:
+        logger.error(f"Error reading PDF {pdf.name}: {e}")
+    return pdf_text
 
-def get_conversation_chain(vectorstore):
-    llm = ChatOpenAI(model="gpt-4o")
-    memory = ConversationBufferMemory(
-        memory_key='chat_history', return_messages=True)
-    conversation_chain = ConversationalRetrievalChain.from_llm(
-        llm=llm,
-        retriever=vectorstore.as_retriever(),
-        memory=memory
-    )
-    return conversation_chain
+# 4. Augmentation of User Prompt
+def augment_user_prompt(user_query, retriever):
+    """Augments user prompt with relevant contextual information from retrieved documents."""
+    try:
+        relevant_documents = retriever.retrieve(user_query)
+        augmented_prompt = f"User Query: {user_query}\nRelevant Context:\n" + "\n".join([doc.page_content for doc in relevant_documents])
+        return augmented_prompt
+    except Exception as e:
+        logger.error(f"Error augmenting user prompt: {e}")
+        return user_query
 
-def handle_userinput(user_question):
-    response = st.session_state.conversation({'question': user_question})
-    st.session_state.chat_history = response['chat_history']
+# 5. Response Generation
+def generate_response(augmented_prompt):
+    """Generates a response using the LLM based on the augmented prompt."""
+    try:
+        llm = ChatOpenAI(model="gpt-4")
+        return llm.generate([augmented_prompt])[0].text
+    except Exception as e:
+        logger.error(f"Error generating response: {e}")
+        return "An error occurred while generating a response."
 
-    for i, message in enumerate(st.session_state.chat_history):
-        if i % 2 == 0:
-            st.write(user_template.replace(
-                "{{MSG}}", message.content), unsafe_allow_html=True)
-        else:
-            st.write(bot_template.replace(
-                "{{MSG}}", message.content), unsafe_allow_html=True)
-
+# Main Application Logic
 def main():
     load_dotenv()
-    st.write(css, unsafe_allow_html=True)
+    st.title("Chat with Your Documents")
 
+    # Session state initialization
     if "conversation" not in st.session_state:
         st.session_state.conversation = None
     if "chat_history" not in st.session_state:
-        st.session_state.chat_history = None
+        st.session_state.chat_history = []
 
-    st.header("Chat with PDF")
-    user_question = st.text_input("Ask a question about your documents:")
-    if user_question:
-        handle_userinput(user_question)
+    # User query input
+    user_query = st.text_input("Ask a question about your documents:")
+    if user_query:
+        handle_user_query(user_query)
 
+    # Sidebar: Document upload and processing
     with st.sidebar:
-        st.subheader("Your documents")
-        pdf_docs = st.file_uploader(
-            "Upload your PDFs here and click on 'Process'", accept_multiple_files=True)
-        
+        st.subheader("Your Documents")
+        pdf_files = st.file_uploader("Upload your PDFs", accept_multiple_files=True)
+
         if st.button("Process"):
-            with st.spinner("Processing"):
-                # get pdf text
-                for doc in pdf_docs:
-                    print(doc)
-                raw_text = get_pdf_text(pdf_docs)
+            if not pdf_files:
+                st.error("Please upload at least one PDF file.")
+            else:
+                with st.spinner("Processing your documents..."):
+                    vectorstore = process_documents(pdf_files)
 
-                # get the text chunks
-                text_chunks = get_text_chunks_RCT(raw_text)
-
-                # create vector store
-                vectorstore = get_vectorstore(text_chunks)
-
-                # create conversation chain
-                st.session_state.conversation = get_conversation_chain(
-                    vectorstore)
+                    if vectorstore:
+                        retriever = retrieve_data(vectorstore)
+                        st.session_state.retriever = retriever  # Save for embedding-based retrieval
+                        st.success("Documents processed successfully! You can now ask questions.")
+                    else:
+                        st.error("Failed to process documents.")
 
 if __name__ == '__main__':
     main()
