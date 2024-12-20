@@ -10,6 +10,7 @@ from langchain.vectorstores import FAISS
 from langchain.memory import ConversationBufferMemory
 from langchain.chains import ConversationalRetrievalChain
 from htmlTemplates import css, bot_template, user_template
+from langchain.text_splitter import RecursiveCharacterTextSplitter
 
 def get_pdf_text(pdf_docs):
     text = ""
@@ -18,7 +19,7 @@ def get_pdf_text(pdf_docs):
         for page in pdf_reader.pages:
             text += page.extract_text()
     return text
-
+'''
 def get_text_chunks(text):
     text_splitter = CharacterTextSplitter(
         separator="\n",
@@ -28,6 +29,16 @@ def get_text_chunks(text):
     )
     chunks = text_splitter.split_text(text)
     return chunks
+'''
+
+def get_text_chunks_RCT(text):
+    text_splitter = RecursiveCharacterTextSplitter(
+        chunk_size=1200,
+    chunk_overlap=100,
+    )
+    chunks = text_splitter.split_text(text)
+    return chunks
+
 '''
 def get_vectorstore(text_chunks):
     embeddings = OpenAIEmbeddings()
@@ -98,7 +109,7 @@ def main():
                 raw_text = get_pdf_text(pdf_docs)
 
                 # get the text chunks
-                text_chunks = get_text_chunks(raw_text)
+                text_chunks = get_text_chunks_RCT(raw_text)
 
                 # create vector store
                 vectorstore = get_vectorstore(text_chunks)
