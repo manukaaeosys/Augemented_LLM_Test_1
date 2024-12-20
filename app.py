@@ -19,6 +19,7 @@ def get_pdf_text(pdf_docs):
         for page in pdf_reader.pages:
             text += page.extract_text()
     return text
+
 '''
 def get_text_chunks(text):
     text_splitter = CharacterTextSplitter(
